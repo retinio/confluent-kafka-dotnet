@@ -64,19 +64,7 @@ namespace Confluent.SchemaRegistry
             this.clients = schemaRegistryUrl
                 .Split(',')
                 .Select(SanitizeUri)// need http or https - use http if not present.
-                .Select(uri =>
-                {
-                    HttpClient client;
-                    if (certificates.Count > 0)
-                    {
-                        client = new HttpClient(CreateHandler(certificates, enableSslCertificateVerification)) { BaseAddress = new Uri(uri, UriKind.Absolute), Timeout = TimeSpan.FromMilliseconds(timeoutMs) };
-                    }
-                    else
-                    {
-                        client = new HttpClient() { BaseAddress = new Uri(uri, UriKind.Absolute), Timeout = TimeSpan.FromMilliseconds(timeoutMs) };
-                    }
-                    return client;
-                })
+                .Select(uri => new HttpClient(CreateHandler(certificates, enableSslCertificateVerification)) { BaseAddress = new Uri(uri, UriKind.Absolute), Timeout = TimeSpan.FromMilliseconds(timeoutMs) })
                 .ToList();
         }
 
@@ -89,14 +77,18 @@ namespace Confluent.SchemaRegistry
         private static HttpClientHandler CreateHandler(List<X509Certificate2> certificates, bool enableSslCertificateVerification)
         {
             var handler = new HttpClientHandler();
-            handler.ClientCertificateOptions = ClientCertificateOption.Manual;
-
+     
             if (!enableSslCertificateVerification)
             {
                 handler.ServerCertificateCustomValidationCallback = (httpRequestMessage, cert, certChain, policyErrors) => { return true; };
             }
 
-            certificates.ForEach(c => handler.ClientCertificates.Add(c));
+            if (certificates.Count > 0)
+            {
+                handler.ClientCertificateOptions = ClientCertificateOption.Manual;
+                certificates.ForEach(c => handler.ClientCertificates.Add(c));
+            }
+
             return handler;
         }
 
